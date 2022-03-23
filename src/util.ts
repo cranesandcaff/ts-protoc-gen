@@ -162,6 +162,8 @@ export function getServiceParameter(service?: string): ServiceParameter {
       return ServiceParameter.GrpcWeb;
     case "grpc-web":
       return ServiceParameter.GrpcWeb;
+    case "grpc-promise":
+      return ServiceParameter.GrpcWebPromises;
     case "grpc-node":
       return ServiceParameter.GrpcNode;
     case undefined:

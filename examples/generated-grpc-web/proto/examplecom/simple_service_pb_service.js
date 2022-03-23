@@ -252,4 +252,38 @@ SimpleServiceClient.prototype.delete = function pb_delete(requestMessage, metada
 };
 
 exports.SimpleServiceClient = SimpleServiceClient;
+function SimpleServicePromiseClient(serviceHost, credentials, options) {
+  this.client = new SimpleServiceClient(serviceHost, credentials, options);
+}
+
+SimpleServicePromisesClient.prototype.doUnary = function doUnary(requestMessage) {
+  var client = this.client;
+  return new Promise(function (resolve, reject) {
+    client.doUnary(requestMessage, function(error, responseMessage) {
+      if (error !== null) {
+        reject(error);
+      } else {
+        resolve(responseMessage);
+      }
+    });
+  });
+};
+
+
+
+
+SimpleServicePromisesClient.prototype.delete = function pb_delete(requestMessage) {
+  var client = this.client;
+  return new Promise(function (resolve, reject) {
+    client.pb_delete(requestMessage, function(error, responseMessage) {
+      if (error !== null) {
+        reject(error);
+      } else {
+        resolve(responseMessage);
+      }
+    });
+  });
+};
+
+exports.SimpleServicePromiseClient = SimpleServicePromiseClient;
 

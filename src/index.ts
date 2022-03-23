@@ -3,7 +3,7 @@ import {ExportMap} from "./ExportMap";
 import { replaceProtoSuffix, withAllStdIn, getParameterEnums, throwError } from "./util";
 import {CodeGeneratorRequest, CodeGeneratorResponse} from "google-protobuf/google/protobuf/compiler/plugin_pb";
 import {FileDescriptorProto} from "google-protobuf/google/protobuf/descriptor_pb";
-import {generateGrpcWebService} from "./service/grpcweb";
+import {generateGrpcWebService, generateGrpcWebPromiseServices} from "./service/grpcweb";
 import {generateGrpcNodeService} from "./service/grpcnode";
 import {ServiceParameter} from "./parameters";
 
@@ -32,6 +32,7 @@ withAllStdIn((inputBuff: Buffer) => {
 
     const generateGrpcWebServices = service === ServiceParameter.GrpcWeb;
     const generateGrpcNodeServices = service === ServiceParameter.GrpcNode;
+    const generatePromiseServices = service === ServiceParameter.GrpcWebPromises;
 
     codeGenRequest.getProtoFileList().forEach(protoFileDescriptor => {
       const fileDescriptorName = protoFileDescriptor.getName() || throwError("Missing file descriptor name");
@@ -49,7 +50,14 @@ withAllStdIn((inputBuff: Buffer) => {
       if (generateGrpcWebServices) {
         generateGrpcWebService(outputFileName, fileNameToDescriptor[fileName], exportMap)
           .forEach(file => codeGenResponse.addFile(file));
-      } else if (generateGrpcNodeServices) {
+      }
+
+      if (generatePromiseServices) {
+        generateGrpcWebPromiseServices(outputFileName, fileNameToDescriptor[fileName], exportMap)
+          .forEach(file => codeGenResponse.addFile(file));
+      }
+
+      if (generateGrpcNodeServices) {
         const file = generateGrpcNodeService(outputFileName, fileNameToDescriptor[fileName], exportMap, mode);
         codeGenResponse.addFile(file);
       }

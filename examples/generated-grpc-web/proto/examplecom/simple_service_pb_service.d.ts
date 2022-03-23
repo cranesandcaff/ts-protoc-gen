@@ -6,6 +6,7 @@ import * as proto_othercom_external_child_message_pb from "../../proto/othercom/
 import * as google_protobuf_empty_pb from "google-protobuf/google/protobuf/empty_pb";
 import {grpc} from "@improbable-eng/grpc-web";
 
+
 type SimpleServiceDoUnary = {
   readonly methodName: string;
   readonly service: typeof SimpleService;
@@ -113,5 +114,18 @@ export class SimpleServiceClient {
     requestMessage: proto_examplecom_simple_service_pb.UnaryRequest,
     callback: (error: ServiceError|null, responseMessage: proto_examplecom_simple_service_pb.UnaryResponse|null) => void
   ): UnaryResponse;
+}
+
+
+export class SimpleServicePromiseClient {
+  readonly serviceHost: string;
+
+  constructor(serviceHost: string, credentials: null, options?: Partial<GrpcOptions>);
+  doUnary(
+    requestMessage: proto_examplecom_simple_service_pb.UnaryRequest,
+  ): Promise<proto_othercom_external_child_message_pb.ExternalChildMessage>;
+  delete(
+    requestMessage: proto_examplecom_simple_service_pb.UnaryRequest,
+  ): Promise<proto_examplecom_simple_service_pb.UnaryResponse>;
 }
 

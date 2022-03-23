@@ -6,10 +6,85 @@ import {CodeGeneratorResponse} from "google-protobuf/google/protobuf/compiler/pl
 import {createFile, RPCMethodDescriptor, RPCDescriptor, GrpcServiceDescriptor} from "./common";
 
 export function generateGrpcWebService(filename: string, descriptor: FileDescriptorProto, exportMap: ExportMap): CodeGeneratorResponse.File[] {
+
   return [
     createFile(generateTypeScriptDefinition(descriptor, exportMap), `${filename}_service.d.ts`),
     createFile(generateJavaScript(descriptor, exportMap), `${filename}_service.js`),
   ];
+}
+
+export function generateGrpcWebPromiseServices(filename: string, descriptor: FileDescriptorProto, exportMap: ExportMap): CodeGeneratorResponse.File[] {
+
+  const serviceDefinitionFilename = getServiceFilename(filename)
+  const serviceInName = filename.includes('service')
+
+  if(!serviceInName){
+    return [
+      createFile(generatePromiseServiceDescriptions(descriptor, exportMap), `${filename}_ope.d.ts`)
+    ]
+  }
+
+  return [
+    createFile(generatePromiseServiceDescriptions(descriptor, exportMap), serviceDefinitionFilename),
+  ];
+}
+
+function getServiceFilename(filename: string){
+  // return `${filename}_ope.d.ts`
+  // In our gRPC services most have the pattern of $DOMAIN_service.proto but some are just $DOMAIN.proto
+  filename = filename.replace('_pb', '')
+
+  
+  return `${filename}_grpc_web_pb.d.ts`
+}
+
+function generatePromiseServiceDescriptions(
+  fileDescriptor: FileDescriptorProto,
+  exportMap: ExportMap
+): string {
+  const serviceDescriptor = new GrpcServiceDescriptor(fileDescriptor, exportMap)
+  const printer = new Printer(0)
+
+  // Header.
+  printer.printLn(`// DO NOT EDIT THIS IS GENERATED`)
+  printer.printLn(`// package: ${serviceDescriptor.packageName}`)
+  printer.printLn(`// file: ${serviceDescriptor.filename}`)
+  printer.printEmptyLn()
+
+  printer.printLn(`import * as grpc from "grpc-web";`)
+
+  if (serviceDescriptor.services.length === 0) {
+    return printer.getOutput()
+  }
+
+  // Import statements.
+  serviceDescriptor.imports.forEach((importDescriptor) => {
+    printer.printLn(
+      `import * as ${importDescriptor.namespace} from "${importDescriptor.path}";`
+    )
+  })
+
+  const codePrinter = new CodePrinter(0, printer)
+  codePrinter
+    .printEmptyLn()
+    .printLn(`type GrpcOptions = {`)
+    .indent()
+    .printLn(`/** Class to intercept requests and attach metadata. */`)
+    .printLn(`unaryInterceptors: any`)
+    .printLn(`'grpc-node.max_session_memory': number`)
+    .printLn(`'grpc-node.max_send_message_length': number`)
+    .printLn(`'grpc-node.max_receive_message_length': number`)
+    .dedent()
+    .printLn(`}`)
+    .printEmptyLn()
+
+  serviceDescriptor.services
+    .forEach(service => {
+
+      printPromiseServiceStubTypes(printer, service)
+    });
+
+  return printer.getOutput()
 }
 
 function generateTypeScriptDefinition(fileDescriptor: FileDescriptorProto, exportMap: ExportMap): string {
@@ -32,6 +107,7 @@ function generateTypeScriptDefinition(fileDescriptor: FileDescriptorProto, expor
     });
   printer.printLn(`import {grpc} from "@improbable-eng/grpc-web";`);
   printer.printEmptyLn();
+  printer.printEmptyLn()
 
   // Services.
   serviceDescriptor.services
@@ -95,6 +171,8 @@ function generateTypeScriptDefinition(fileDescriptor: FileDescriptorProto, expor
     .forEach(service => {
       printServiceStubTypes(printer, service);
       printer.printEmptyLn();
+      printPromiseServiceStubTypes(printer, service)
+      printer.printEmptyLn()
     });
 
   return printer.getOutput();
@@ -148,6 +226,8 @@ function generateJavaScript(fileDescriptor: FileDescriptorProto, exportMap: Expo
 
       // Add a client stub that talks with the @improbable-eng/grpc-web library
       printServiceStub(printer, service);
+
+      printServicePromisesStub(printer, service)
 
       printer.printEmptyLn();
     });
@@ -394,4 +474,69 @@ function printClientStreamStubMethodTypes(printer: CodePrinter, method: RPCMetho
 
 function printBidirectionalStubMethodTypes(printer: CodePrinter, method: RPCMethodDescriptor) {
   printer.printLn(`${method.nameAsCamelCase}(metadata?: grpc.Metadata): BidirectionalStream<${method.requestType}, ${method.responseType}>;`);
+}
+
+function printServicePromisesStub(
+  methodPrinter: Printer,
+  service: RPCDescriptor
+) {
+  const printer = new CodePrinter(0, methodPrinter)
+
+  printer
+    .printLn(`function ${service.name}PromiseClient(serviceHost, credentials, options) {`)
+    .indent()
+    .printLn(`this.client = new ${service.name}Client(serviceHost, credentials, options);`)
+    .dedent()
+    .printLn(`}`)
+    .printEmptyLn()
+
+  service.methods.forEach((method: RPCMethodDescriptor) => {
+    if (!method.requestStream && !method.responseStream) {
+      printUnaryPromiseStubMethod(printer, method)
+    }
+    printer.printEmptyLn()
+  })
+  printer.printLn(
+    `exports.${service.name}PromiseClient = ${service.name}PromiseClient;`
+  )
+}
+
+function printUnaryPromiseStubMethod(printer: CodePrinter, method: RPCMethodDescriptor) {
+  printer.printLn(`${method.serviceName}PromisesClient.prototype.${method.nameAsCamelCase} = function ${method.functionName}(requestMessage) {`)
+    .indent().printLn(`var client = this.client;`)
+             .printLn(`return new Promise(function (resolve, reject) {`)
+      .indent().printLn(`client.${method.functionName}(requestMessage, function(error, responseMessage) {`)
+        .indent().printLn(`if (error !== null) {`)
+          .indent().printLn(`reject(error);`)
+        .dedent().printLn(`} else {`)
+          .indent().printLn(`resolve(responseMessage);`)
+        .dedent().printLn(`}`)
+      .dedent().printLn(`});`)
+    .dedent().printLn(`});`)
+  .dedent().printLn(`};`);
+}
+
+function printPromiseServiceStubTypes(methodPrinter: Printer, service: RPCDescriptor) {
+  const printer = new CodePrinter(0, methodPrinter);
+
+  printer
+    .printEmptyLn()
+    .printLn(`export class ${service.name}PromiseClient {`)
+    .indent().printLn(`readonly serviceHost: string;`)
+    .printEmptyLn()
+    .printLn(`constructor(serviceHost: string, credentials: null, options?: Partial<GrpcOptions>);`);
+
+  service.methods.forEach((method: RPCMethodDescriptor) => {
+    if (!method.requestStream && !method.responseStream) {
+      printUnaryPromiseStubMethodTypes(printer, method);
+    }
+  });
+
+  printer.dedent().printLn("}");
+}
+
+function printUnaryPromiseStubMethodTypes(printer: CodePrinter, method: RPCMethodDescriptor) {
+  printer.printLn(`${method.nameAsCamelCase}(`)
+    .indent().printLn(`requestMessage: ${method.requestType},`)
+    .dedent().printLn(`): Promise<${method.responseType}>;`);
 }

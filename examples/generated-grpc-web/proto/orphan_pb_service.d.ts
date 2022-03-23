@@ -4,6 +4,7 @@
 import * as proto_orphan_pb from "../proto/orphan_pb";
 import {grpc} from "@improbable-eng/grpc-web";
 
+
 type OrphanServiceDoUnary = {
   readonly methodName: string;
   readonly service: typeof OrphanService;
@@ -70,5 +71,15 @@ export class OrphanServiceClient {
     callback: (error: ServiceError|null, responseMessage: proto_orphan_pb.OrphanMessage|null) => void
   ): UnaryResponse;
   doStream(requestMessage: proto_orphan_pb.OrphanStreamRequest, metadata?: grpc.Metadata): ResponseStream<proto_orphan_pb.OrphanMessage>;
+}
+
+
+export class OrphanServicePromiseClient {
+  readonly serviceHost: string;
+
+  constructor(serviceHost: string, credentials: null, options?: Partial<GrpcOptions>);
+  doUnary(
+    requestMessage: proto_orphan_pb.OrphanUnaryRequest,
+  ): Promise<proto_orphan_pb.OrphanMessage>;
 }
 

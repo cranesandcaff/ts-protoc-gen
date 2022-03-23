@@ -3,6 +3,10 @@
 [![NPM](https://img.shields.io/npm/dm/ts-protoc-gen.svg)](https://www.npmjs.com/package/ts-protoc-gen)
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
+# Difference from ts-protoc-gen
+
+This is a fork of ts-protoc-gen that introduces a promise client type generator.
+
 # ts-protoc-gen
 
 > Protoc Plugin for generating TypeScript Declarations
